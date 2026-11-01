@@ -102,10 +102,32 @@ def run_epoch(model, loader, device, optimizer=None, threshold=0.5):
 def load_model(checkpoint_path, device):
     from model import DualBranchModel
 
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    if checkpoint.get("architecture") != "efficientnet_b4_fft":
-        raise ValueError("Use a B4 + FFT checkpoint saved by train.py.")
-    model = DualBranchModel(**checkpoint["model_config"])
+    # The original checkpoint contains NumPy scalar/array training metadata.
+    # Allow only these known NumPy types instead of enabling arbitrary pickle loading.
+    allowed = [np._core.multiarray.scalar, np._core.multiarray._reconstruct,
+               np.ndarray, np.dtype, np.dtypes.Float64DType, np.dtypes.Int64DType]
+    with torch.serialization.safe_globals(allowed):
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    if not isinstance(checkpoint, dict) or "model_state_dict" not in checkpoint:
+        raise ValueError("Expected a checkpoint containing model_state_dict.")
+    architecture = checkpoint.get("architecture")
+    if architecture not in (None, "efficientnet_b4_fft", "efficientnet_b0_fft"):
+        raise ValueError("Unsupported checkpoint architecture.")
+    width = checkpoint["model_state_dict"]["classifier.0.weight"].shape[1]
+    backbone = {1536: "b0", 2048: "b4"}.get(width)
+    if backbone is None or (architecture and architecture != f"efficientnet_{backbone}_fft"):
+        raise ValueError("Checkpoint dimensions do not match the declared architecture.")
+    config = dict(checkpoint.get("model_config", {}))
+    if config.get("backbone", backbone) != backbone:
+        raise ValueError("Checkpoint backbone configuration does not match its weights.")
+    config["backbone"] = backbone
+    model = DualBranchModel(**config)
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     model.to(device).eval()
+    checkpoint = dict(checkpoint)
+    checkpoint["architecture"] = f"efficientnet_{backbone}_fft"
+    checkpoint.setdefault("image_size", 380)
+    checkpoint.setdefault("preprocessing", "torchvision_resize" if architecture is None else "albumentations")
+    if checkpoint["preprocessing"] not in ("torchvision_resize", "albumentations"):
+        raise ValueError("Unknown checkpoint preprocessing.")
     return model, checkpoint

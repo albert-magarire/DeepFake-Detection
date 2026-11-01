@@ -8,9 +8,31 @@ import numpy as np
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
+from torchvision import transforms
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 CLASS_NAMES = ("real", "fake")
+
+
+class OriginalImageTransform:
+    """Preserve the PIL resizing used by the bundled application weights."""
+
+    def __init__(self, image_size=380):
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+        ])
+
+    def __call__(self, *, image):
+        return {"image": self.transform(Image.fromarray(image))}
+
+
+def inference_transform(checkpoint):
+    if checkpoint.get("preprocessing") == "torchvision_resize":
+        return OriginalImageTransform(checkpoint["image_size"])
+    return make_transform(checkpoint["image_size"])
 
 
 def make_transform(image_size=380, training=False, seed=42):

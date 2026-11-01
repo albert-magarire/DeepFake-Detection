@@ -55,7 +55,42 @@ To classify one image:
 python test.py --image path/to/image.jpg --checkpoint checkpoints/best.pt
 ```
 
-Use checkpoints created by this B4 implementation. A fake probability greater than or equal to `0.5` maps to fake; otherwise it maps to real. Change the decision threshold with `--threshold`.
+Use a checkpoint created by `train.py`, or the bundled `backend/weights.pth`. The loader selects the matching B4 or B0 architecture and preprocessing. A fake probability greater than or equal to `0.5` maps to fake; otherwise it maps to real. Change the decision threshold with `--threshold`.
+
+## Run the web app
+
+Start the API from the repository root:
+
+```bash
+python main.py
+```
+
+In a second terminal, install and start the frontend with Node.js 22.12+:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open the local URL printed by Vite (normally `http://localhost:5173`). The frontend uploads images to `http://127.0.0.1:8000/predict`. API documentation is at `http://127.0.0.1:8000/docs`.
+
+The included `backend/weights.pth` is copied unchanged from the [original application](https://github.com/joshkgrant2003/DeepfakeDetector). It requires **EfficientNet-B0 + FFT**. Training in this repository defaults to **EfficientNet-B4 + FFT**; B0 weights cannot initialize B4. The default app uses the bundled weights and their original PIL resize/normalization. To serve a newly trained B4 checkpoint instead, set `MODEL_CHECKPOINT` before starting the API:
+
+```powershell
+# Windows PowerShell, from the repository root
+$env:MODEL_CHECKPOINT = "checkpoints/best.pt"
+python main.py
+```
+
+```bash
+# macOS / Linux, from the repository root
+MODEL_CHECKPOINT=checkpoints/best.pt python main.py
+```
+
+Alternatively, run `python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000` from the repository root. Set `CORS_ORIGINS` to a comma-separated list of frontend origins when changing ports or hosting. Set `VITE_HOST` (or `VITE_LOCAL_HOST`) in the frontend environment to change the API URL; restart Vite or rebuild after changing it. Local origins on port 5173 are allowed by default. Images must be no larger than 10 MB.
+
+The API retains the original response fields: `label` is `Real` or `Fake`, and `confidence` is the probability of fake. The frontend converts that value into confidence for the displayed label. Run `npm run build` to build the frontend, or `npm run lint` to check it.
 
 ## Data
 

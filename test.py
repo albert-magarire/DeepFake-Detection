@@ -10,7 +10,7 @@ from PIL import Image
 import torch
 from torch.utils.data import DataLoader
 
-from dataset import ImageDataset, make_transform
+from dataset import ImageDataset, inference_transform
 from utils import load_model, run_epoch, select_device
 
 
@@ -35,16 +35,18 @@ def main():
     device = select_device(args.device)
     model, checkpoint = load_model(args.checkpoint, device)
     image_size = checkpoint["image_size"]
+    transform = inference_transform(checkpoint)
     if args.image:
         with Image.open(args.image) as image:
             rgb = np.asarray(image.convert("RGB"))
-        tensor = make_transform(image_size)(image=rgb)["image"].unsqueeze(0).to(device)
+        tensor = transform(image=rgb)["image"].unsqueeze(0).to(device)
         with torch.inference_mode():
             probability = model(tensor).sigmoid().item()
         print(json.dumps({"fake_probability": probability,
                           "prediction": "fake" if probability >= args.threshold else "real"}, indent=2))
         return
     dataset = ImageDataset(args.data_dir, image_size)
+    dataset.transform = transform
     loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.workers,
                         shuffle=False, pin_memory=device.type == "cuda")
     metrics, paths, labels, probabilities = run_epoch(model, loader, device, threshold=args.threshold)

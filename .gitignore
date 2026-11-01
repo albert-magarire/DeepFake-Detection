@@ -10,9 +10,14 @@ checkpoints/
 outputs/
 *.pt
 *.pth
+!backend/weights.pth
 *.ckpt
 *.csv
 *.ipynb
 .DS_Store
 .idea/
 .vscode/
+node_modules/
+dist/
+*.tsbuildinfo
+*.log

@@ -62,7 +62,7 @@ def main():
     train_loader = DataLoader(train_data, sampler=sampler, drop_last=True,
                               generator=generator, **loader_args)
     val_loader = DataLoader(val_data, shuffle=False, **loader_args)
-    model_config = {"spatial_weight": 0.8, "frequency_weight": 0.2}
+    model_config = {"backbone": "b4", "spatial_weight": 0.8, "frequency_weight": 0.2}
     model = DualBranchModel(pretrained=not args.no_pretrained, **model_config).to(device)
     set_spatial_trainable(model, args.freeze_epochs == 0)
     optimizer = build_optimizer(model, args.spatial_lr, args.branch_lr, args.weight_decay)
@@ -80,6 +80,7 @@ def main():
               f"val loss {val_metrics['loss']:.4f} | val macro F1 {val_metrics['macro_f1']:.4f}", flush=True)
         checkpoint = {
             "architecture": "efficientnet_b4_fft", "epoch": epoch,
+            "preprocessing": "albumentations",
             "model_config": model_config, "image_size": args.image_size,
             "model_state_dict": model.state_dict(), "train_config": config,
         }

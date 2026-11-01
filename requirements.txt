@@ -4,3 +4,6 @@ albumentations==2.0.8
 numpy==2.2.6
 Pillow==11.3.0
 scikit-learn==1.7.2
+fastapi==0.135.2
+python-multipart==0.0.22
+uvicorn==0.42.0
